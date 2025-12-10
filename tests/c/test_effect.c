@@ -47,9 +47,9 @@ START_TEST(test_error) {
 
   run_lua(L, lua_src);
 
-  Effect e = parse_effect(L, -1);
-  ck_assert_int_eq(e.kind, EFFECT_ERROR);
-  ck_assert_str_eq(e.as.error.message, "Error returned from lua effect");
+  Effect *e = parse_effect(L, -1);
+  ck_assert_int_eq(e->kind, EFFECT_ERROR);
+  ck_assert_str_eq(e->as.error.message, "Error returned from lua effect");
 }
 END_TEST
 
@@ -60,11 +60,11 @@ START_TEST(test_file) {
 
   run_lua(L, lua_src);
 
-  Effect e = parse_effect(L, -1);
-  ck_assert_int_eq(e.kind, EFFECT_FILE);
-  ck_assert_str_eq(e.as.file.content, "hello world");
-  ck_assert_str_eq(e.as.file.path, "out.txt");
-  ck_assert_str_eq(e.as.file.mode, "a");
+  Effect *e = parse_effect(L, -1);
+  ck_assert_int_eq(e->kind, EFFECT_FILE);
+  ck_assert_str_eq(e->as.file.content, "hello world");
+  ck_assert_str_eq(e->as.file.path, "out.txt");
+  ck_assert_str_eq(e->as.file.mode, "a");
 }
 END_TEST
 
@@ -78,12 +78,12 @@ START_TEST(test_network) {
 
   run_lua(L, lua_src);
 
-  Effect e = parse_effect(L, -1);
-  ck_assert_int_eq(e.kind, EFFECT_NETWORK);
-  ck_assert_str_eq(e.as.network.content, "payload");
-  ck_assert_str_eq(e.as.network.url, "https://example.com/api");
-  ck_assert_str_eq(e.as.network.mode, "post");
-  ck_assert_int_eq(e.as.network.timeout, 5000);
+  Effect *e = parse_effect(L, -1);
+  ck_assert_int_eq(e->kind, EFFECT_NETWORK);
+  ck_assert_str_eq(e->as.network.content, "payload");
+  ck_assert_str_eq(e->as.network.url, "https://example.com/api");
+  ck_assert_str_eq(e->as.network.mode, "post");
+  ck_assert_int_eq(e->as.network.timeout, 5000);
 }
 END_TEST
 
