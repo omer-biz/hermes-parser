@@ -1,6 +1,4 @@
-// A C parser-combinator host with Lua bindings and correct memory management.
-// Compile (example): gcc -std=c11 parser.c -o parser -llua
-// (adjust -llua path/names per your platform)
+// A C parser-combinator host with Lua bindings
 
 #ifndef __PARSER_LUA
 
@@ -37,7 +35,8 @@ typedef enum {
   P_DROP_FOR,
   P_PAIR,
   P_LAZY,
-  P_CUSTOM
+  P_CUSTOM,
+  P_DEBUG
 } ParserKind;
 
 struct Parser {
@@ -210,6 +209,15 @@ typedef struct {
 static ParseResult custom_parse(Parser *p, const char *input);
 static void custom_destroy(Parser *p);
 static Parser *make_custom(lua_State *L, int func_ref);
+
+typedef struct {
+  int func_ref;
+  Parser *inner;
+} DebugData;
+
+static ParseResult debug_parse(Parser *p, const char *input);
+static void debug_destroy(Parser *p);
+static Parser *debug_lazy(lua_State *L, int func_ref, Parser *inner);
 
 /* ---------------------------
    Lua userdata helpers

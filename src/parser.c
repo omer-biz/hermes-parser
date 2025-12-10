@@ -663,6 +663,51 @@ static void custom_destroy(Parser *p) {
   }
 }
 
+static ParseResult debug_parse(Parser *p, const char *input) {
+  DebugData *d = (DebugData *)p->data;
+  lua_State *L = p->L;
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX,
+              d->func_ref); // push the function passed to the debug function
+
+  ParseResult r = d->inner->parse(d->inner, input);
+  if (r.lua_ref != LUA_NOREF) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, r.lua_ref);
+  } else {
+    lua_pushnil(L);
+  }
+
+  lua_pushstring(L, r.rest);
+
+  if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
+    const char *err = lua_tostring(L, -1);
+    fprintf(stderr, "debug callback error: %s\n", err ? err : "(unknown)");
+    lua_pop(L, 1);
+    return parse_err(input);
+  }
+
+  return r;
+}
+
+static void debug_destroy(Parser *p) {
+  DebugData *d = (DebugData *)p->data;
+
+  if (d) {
+    if (d->func_ref != LUA_NOREF) {
+      luaL_unref(p->L, LUA_REGISTRYINDEX, d->func_ref);
+    }
+    free(d);
+  }
+}
+
+static Parser *make_debug(lua_State *L, int func_ref, Parser *inner) {
+  DebugData *d = (DebugData *)malloc(sizeof(DebugData));
+  d->func_ref = func_ref;
+  d->inner = inner;
+
+  return parser_new(P_DEBUG, debug_parse, debug_destroy, d, L);
+}
+
 /* inspector */
 
 static char *make_indent(int level) {
@@ -1114,6 +1159,20 @@ static int l_parser_inspect(lua_State *L) {
   return 1;
 }
 
+static int l_parser_debug(lua_State *L) {
+  Parser *inner = check_parser_ud(L, 1);
+
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  lua_pushvalue(L, 2);
+  int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  Parser *p = make_debug(L, ref, inner);
+  push_parser_ud(L, p);
+  parser_unref(p);
+
+  return 1;
+}
+
 /* __gc metamethod: free the userdata-owned reference */
 static int l_parser_gc(lua_State *L) {
   Parser **ud = (Parser **)luaL_checkudata(L, 1, "Parser");
@@ -1189,6 +1248,7 @@ static const luaL_Reg parser_methods[] = {
     {"drop_for", l_parser_drop_for},
     {"pair", l_parser_pair},
     {"parse", l_parser_parse},
+    {"debug", l_parser_debug},
     {NULL, NULL}};
 
 static int parser_index(lua_State *L) {

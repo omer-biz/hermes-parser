@@ -246,6 +246,23 @@ function M.Parser:pred(f) end
 ---@return Parser
 function M.Parser:pair(p) end
 
+--- **Implemented in:** C
+---@example
+---```lua
+--- local p = P.identifier("ident")
+---     :debug(function(result, rest)
+---       print(result) -- will print -> ident
+---       print(string.format("rest: %q", rest)) -- will print -> " everything else"
+---                                              -- notice the space that's bc P.space1() is not called yet
+---     end):take_after(P.space1())
+---
+--- local _, _= p:parse("ident everything else")
+---```
+---@param self Parser
+---@param f fun(value: table | string | nil, string): nil debug function.
+---@return Parser
+function M.Parser:debug(f) end
+
 --- Executes the parser on the given input string.
 ---
 --- **Implemented in:** C
