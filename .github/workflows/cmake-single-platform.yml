@@ -10,19 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies (Lua, C toolchain, busted)
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.4 lua5.4-dev luarocks build-essential cmake
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            liblua5.4-dev \
+            lua5.4 \
+            luarocks \
+            libcheck-dev
+
           sudo luarocks install busted
 
       - name: Build project
-        run: |
-          make build
+        run: make build
 
-      - name: Run all tests (make test)
-        run: |
-          make test
+      - name: Run C tests
+        run: make ctest
+
+      - name: Run Lua tests
+        run: make luatest
+
+      - name: Run all tests
+        run: make test
