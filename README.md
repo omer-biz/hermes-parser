@@ -5,7 +5,7 @@ Hermes is a parser combinator library I created for three main reasons:
 2. To parse SMS messages from my bank and output them in a hledger-compatible text format for easy syncing and reporting.  
 3. To explore the C Lua API.  
 
-There is also an interactive playground available [here](link).
+There is also an interactive playground available [hermes_playground](https://github.com/omer-biz/hermes_playground).
 
 ## Features
 
