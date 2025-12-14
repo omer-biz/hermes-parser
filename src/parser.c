@@ -758,10 +758,10 @@ static char *inspect_any_char(Parser *p, int indent) {
 }
 
 static char *inspect_binary(const char *name, Parser *left, Parser *right,
-                            int indent) {
+                            int indent, InspectCtx *ctx) {
   char *ind = make_indent(indent);
-  char *left_str = inspect_parser(left, indent + 1);
-  char *right_str = inspect_parser(right, indent + 1);
+  char *left_str = inspect_parser_rec(left, indent + 1, ctx);
+  char *right_str = inspect_parser_rec(right, indent + 1, ctx);
   const char *templ = "%s%s(\n%s\n%s\n%s)";
 
   int size = snprintf(NULL, 0, templ, ind, name, left_str, right_str, ind) + 1;
@@ -776,31 +776,31 @@ static char *inspect_binary(const char *name, Parser *left, Parser *right,
   return buff;
 }
 
-static char *inspect_pair(Parser *p, int indent) {
+static char *inspect_pair(Parser *p, int indent, InspectCtx *ctx) {
   PairData *d = (PairData *)p->data;
-  return inspect_binary("pair", d->left, d->right, indent);
+  return inspect_binary("pair", d->left, d->right, indent, ctx);
 }
 
-static char *inspect_take_after(Parser *p, int indent) {
+static char *inspect_take_after(Parser *p, int indent, InspectCtx *ctx) {
   TakeAfterData *d = (TakeAfterData *)p->data;
-  return inspect_binary("take_after", d->left, d->right, indent);
+  return inspect_binary("take_after", d->left, d->right, indent, ctx);
 }
 
-static char *inspect_drop_for(Parser *p, int indent) {
+static char *inspect_drop_for(Parser *p, int indent, InspectCtx *ctx) {
   DropForData *d = (DropForData *)p->data;
-  return inspect_binary("drop_for", d->left, d->right, indent);
+  return inspect_binary("drop_for", d->left, d->right, indent, ctx);
 }
 
-static char *inspect_or_else(Parser *p, int indent) {
+static char *inspect_or_else(Parser *p, int indent, InspectCtx *ctx) {
   OrData *d = (OrData *)p->data;
-  return inspect_binary("or_else", d->left, d->right, indent);
+  return inspect_binary("or_else", d->left, d->right, indent, ctx);
 }
 
-static char *inspect_one_or_more(Parser *p, int indent) {
+static char *inspect_one_or_more(Parser *p, int indent, InspectCtx *ctx) {
   RepData *d = (RepData *)p->data;
 
   char *ind = make_indent(indent);
-  char *inner = inspect_parser(d->inner, indent + 1);
+  char *inner = inspect_parser_rec(d->inner, indent + 1, ctx);
   const char *templ = "%sone_or_more(\n%s\n%s)";
 
   int size = snprintf(NULL, 0, templ, ind, inner, ind) + 1;
@@ -819,11 +819,11 @@ static char *inspect_one_or_more(Parser *p, int indent) {
   return buff;
 }
 
-static char *inspect_zero_or_more(Parser *p, int indent) {
+static char *inspect_zero_or_more(Parser *p, int indent, InspectCtx *ctx) {
   RepData *d = (RepData *)p->data;
 
   char *ind = make_indent(indent);
-  char *inner = inspect_parser(d->inner, indent + 1);
+  char *inner = inspect_parser_rec(d->inner, indent + 1, ctx);
   const char *templ = "%szero_or_more(\n%s\n%s)";
 
   int size = snprintf(NULL, 0, templ, ind, inner, ind) + 1;
@@ -844,10 +844,10 @@ static char *inspect_zero_or_more(Parser *p, int indent) {
 }
 
 static char *inspect_unary_with_func(const char *name, Parser *inner,
-                                     int indent) {
+                                     int indent, InspectCtx *ctx) {
   char *ind = make_indent(indent);
   const char *templ = "%s%s(<function>\n%s%s\n)";
-  char *inner_str = inspect_parser(inner, indent + 1);
+  char *inner_str = inspect_parser_rec(inner, indent + 1, ctx);
 
   int size = snprintf(NULL, 0, templ, ind, name, ind, inner_str) + 1;
   char *buff = malloc(size);
@@ -866,19 +866,19 @@ static char *inspect_unary_with_func(const char *name, Parser *inner,
   return strdup("mappp");
 }
 
-static char *inspect_pred(Parser *p, int indent) {
+static char *inspect_pred(Parser *p, int indent, InspectCtx *ctx) {
   PredData *d = (PredData *)p->data;
-  return inspect_unary_with_func("pred", d->inner, indent);
+  return inspect_unary_with_func("pred", d->inner, indent, ctx);
 }
 
-static char *inspect_map(Parser *p, int indent) {
+static char *inspect_map(Parser *p, int indent, InspectCtx *ctx) {
   MapData *d = (MapData *)p->data;
-  return inspect_unary_with_func("map", d->inner, indent);
+  return inspect_unary_with_func("map", d->inner, indent, ctx);
 }
 
-static char *inspect_and_then(Parser *p, int indent) {
+static char *inspect_and_then(Parser *p, int indent, InspectCtx *ctx) {
   AndThenData *d = (AndThenData *)p->data;
-  return inspect_unary_with_func("and_then", d->inner, indent);
+  return inspect_unary_with_func("and_then", d->inner, indent, ctx);
 }
 
 static char *inspect_lazy(Parser *p, int indent) {
@@ -901,9 +901,21 @@ static char *inspect_lazy(Parser *p, int indent) {
   return buff;
 }
 
-static char *inspect_parser(Parser *p, int indent) {
-  // TODO: could crash if recursive combinators are used
-  // we don't detect cycles yet.
+static char *inspect_parser_rec(Parser *p, int indent, InspectCtx *ctx) {
+  if (!p) {
+    return strdup("<null>");
+  }
+
+  if (inspect_ctx_contains(ctx, p)) {
+    char *ind = make_indent(indent);
+    int size = snprintf(NULL, 0, "%s<recursive parser>", ind) + 1;
+    char *buf = malloc(size);
+    snprintf(buf, size, "%s<recursive parser>", ind);
+    free(ind);
+    return buf;
+  }
+
+  inspect_ctx_push(ctx, p);
 
   lua_State *L = p->L;
   if (L && p->lua_ref != LUA_NOREF) {
@@ -917,50 +929,101 @@ static char *inspect_parser(Parser *p, int indent) {
 
       int size = snprintf(NULL, 0, "%s%s", ind, inspect_str) + 1;
       char *buff = malloc(size);
-      if (!buff) {
-        free(ind);
+      if (buff) {
+        snprintf(buff, size, "%s%s", ind, inspect_str);
       }
 
-      snprintf(buff, size, "%s%s", ind, inspect_str);
       free(ind);
 
-      lua_pop(L, 3); // inspect, uservalue, userdata
+      lua_pop(L, 3);        // inspect, uservalue, userdata
+      inspect_ctx_pop(ctx); // because it has an inspect field from lua land
       return buff;
     }
     lua_pop(L, 3);
   }
 
+  char *result = NULL;
   switch (p->kind) {
   case P_LITERAL:
-    return inspect_literal(p, indent);
+    result = inspect_literal(p, indent);
+    break;
   case P_ANY_CHAR:
-    return inspect_any_char(p, indent);
+    result = inspect_any_char(p, indent);
+    break;
 
   case P_PAIR:
-    return inspect_pair(p, indent);
+    result = inspect_pair(p, indent, ctx);
+    break;
   case P_OR_ELSE:
-    return inspect_or_else(p, indent);
+    result = inspect_or_else(p, indent, ctx);
+    break;
   case P_TAKE_AFTER:
-    return inspect_take_after(p, indent);
+    result = inspect_take_after(p, indent, ctx);
+    break;
   case P_DROP_FOR:
-    return inspect_drop_for(p, indent);
+    result = inspect_drop_for(p, indent, ctx);
+    break;
 
   case P_MAP:
-    return inspect_map(p, indent);
+    result = inspect_map(p, indent, ctx);
+    break;
   case P_AND_THEN:
-    return inspect_and_then(p, indent);
+    result = inspect_and_then(p, indent, ctx);
+    break;
   case P_PRED:
-    return inspect_pred(p, indent);
+    result = inspect_pred(p, indent, ctx);
+    break;
 
   case P_ONE_OR_MORE:
-    return inspect_one_or_more(p, indent);
+    result = inspect_one_or_more(p, indent, ctx);
+    break;
   case P_ZERO_OR_MORE:
-    return inspect_zero_or_more(p, indent);
+    result = inspect_zero_or_more(p, indent, ctx);
+    break;
 
   case P_LAZY:
-    return inspect_lazy(p, indent);
+    result = inspect_lazy(p, indent);
+    break;
   default:
-    return strdup("unknow");
+    result = strdup("unknow");
+    break;
+  }
+
+  inspect_ctx_pop(ctx);
+  return result;
+}
+
+char *inspect_parser(Parser *p, int indent) {
+  InspectCtx ctx = {0};
+  char *res = inspect_parser_rec(p, indent, &ctx);
+  free(ctx.stack);
+  return res;
+}
+
+/* ---------------------------
+   Inspect helpers
+   --------------------------- */
+
+static bool inspect_ctx_contains(InspectCtx *ctx, Parser *p) {
+  for (size_t i = 0; i < ctx->len; i++) {
+    if (ctx->stack[i] == p) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void inspect_ctx_push(InspectCtx *ctx, Parser *p) {
+  if (ctx->len == ctx->cap) {
+    ctx->cap = ctx->cap ? ctx->cap * 2 : 8;
+    ctx->stack = realloc(ctx->stack, ctx->cap * sizeof(Parser *));
+  }
+  ctx->stack[ctx->len++] = p;
+}
+
+static void inspect_ctx_pop(InspectCtx *ctx) {
+  if (ctx->len > 0) {
+    ctx->len--;
   }
 }
 
