@@ -746,13 +746,15 @@ static char *inspect_literal(Parser *p, int indent) {
 static char *inspect_any_char(Parser *p, int indent) {
   (void)p;
   char *ind = make_indent(indent);
-  int size = snprintf(NULL, 0, "%sany_char()", ind);
+  int size = snprintf(NULL, 0, "%sany_char()", ind) + 1;
   char *buff = malloc(size);
 
   if (buff == NULL) {
     free(ind);
     return NULL;
   }
+
+  snprintf(buff, size, "%sany_char()", ind);
 
   return buff;
 }
