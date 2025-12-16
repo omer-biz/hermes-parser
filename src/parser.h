@@ -4,6 +4,7 @@
 
 #include <lauxlib.h>
 #include <lua.h>
+#include <stdbool.h>
 
 typedef struct {
   int ok;           // 1 success, 0 failure
